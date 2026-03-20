@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>What Would You Choose? | Male Contraceptive Initiative</title>
+  <!--
+    MCI DISCRETE CHOICE EXPERIMENT — PROTOTYPE
+    Brand colors from MCI Style Sheet:
+      Navy    #002D72  (PMS 288)  — primary
+      Gray    #7C878E  (PMS 430)  — primary
+      Orange  #D86018  (PMS 1595) — secondary accent / selected state
+      Blue    #0076A8  (PMS 7690) — secondary interactive
+      L.Blue  #009CDE  (PMS 2925) — secondary hover
+      Bg blue #A4C8E1  (PMS 543)  — tertiary / card tints
+    Typeface: Tahoma (Microsoft/web fallback for Texta)
+
+    DATA COLLECTION SETUP (Google Sheets):
+    ─────────────────────────────────────────
+    1. Create a new Google Sheet. In row 1 add headers:
+       A: sessionId  B: startTime  C: completedAt  D: userAgent
+       E–T: round1_A, round1_B, round1_choice … round8_A, round8_B, round8_choice
+       U–AB: ideal_efficacy, ideal_administration, ideal_onset,
+             ideal_returnToFertility, ideal_mechanism, ideal_hormonal,
+             ideal_providerRequired, ideal_sexDrive, ideal_testes, ideal_ejaculation, ideal_energyMood
+
+    2. Extensions → Apps Script → paste this doPost function:
+
+    function doPost(e) {
+      const ss = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+      const d = JSON.parse(e.postData.contents);
+      const row = [d.sessionId, d.startTime, d.completedAt, d.userAgent];
+      for (let i = 0; i < 5; i++) {
+        const r = d.dceRounds[i] || {};
+        row.push(r.productA||'', r.productB||'', r.choice||'');
+      }
+      const attrs = ['efficacy','administration','onset','returnToFertility',
+                     'hormonal','providerRequired','sexDrive','testes',
+                     'ejaculation','energyMood'];
+      attrs.forEach(a => row.push(d.idealProfile[a]||''));
+      ss.appendRow(row);
+      return ContentService
+        .createTextOutput(JSON.stringify({status:'ok'}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    Sheet headers (row 1):
+    sessionId | startTime | completedAt | userAgent |
+    r1_A | r1_B | r1_choice | r2_A | r2_B | r2_choice |
+    r3_A | r3_B | r3_choice | r4_A | r4_B | r4_choice |
+    r5_A | r5_B | r5_choice |
+    ideal_efficacy | ideal_administration | ideal_onset |
+    ideal_returnToFertility | ideal_hormonal | ideal_providerRequired |
+    ideal_sexDrive | ideal_testes | ideal_ejaculation | ideal_energyMood
+
+    3. Deploy → New deployment → Web app
+       Execute as: Me | Who has access: Anyone
+    4. Copy the URL → paste into CONFIG.ENDPOINT_URL below.
+    ─────────────────────────────────────────
+  -->
+  <style>
+    /* ── RESET ─────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── TOKENS ─────────────────────────────────── */
+    :root {
+      --navy:       #002D72;
+      --navy-dark:  #001a4a;
+      --blue:       #0076A8;
+      --blue-light: #009CDE;
+      --orange:     #D86018;
+      --orange-lt:  #fdf0e8;
+      --teal-bg:    #A4C8E1;
+      --teal-pale:  #e8f4fb;
+      --gray:       #7C878E;
+      --gray-lt:    #C1C6C8;
+      --gray-pale:  #f0f2f3;
+      --tan:        #C5B9AC;
+      --tan-pale:   #f7f5f3;
+      --text:       #1a1a2e;
+      --white:      #ffffff;
+      --green:      #2e7d32;
+      --green-pale: #e8f5e9;
+      --radius:     10px;
+      --shadow:     0 3px 16px rgba(0,45,114,.13);
+      --shadow-lg:  0 8px 28px rgba(0,45,114,.2);
+      --trans:      all .22s ease;
+    }
+
+    body {
+      font-family: Tahoma, 'Segoe UI', Arial, sans-serif;
+      background: var(--tan-pale);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    h1,h2,h3,h4 { font-family: Tahoma, 'Segoe UI', Arial, sans-serif; color: var(--navy); }
+
+    /* ── SCREENS ─────────────────────────────────── */
+    .screen { display: none; min-height: 100vh; flex-direction: column; align-items: center; }
+    .screen.active { display: flex; }
+
+    /* ── HEADER ─────────────────────────────────── */
+    .site-header {
+      width: 100%; background: var(--white);
+      border-bottom: 3px solid var(--navy);
+      padding: 12px 28px;
+      display: flex; align-items: center; gap: 14px;
+      box-shadow: 0 2px 8px rgba(0,45,114,.1);
+      flex-shrink: 0;
+    }
+    .logo-block { display: flex; align-items: center; gap: 10px; }
+    /* SVG logo mark replicates the MCI icon roughly */
+    .logo-svg { width: 44px; height: 44px; flex-shrink: 0; }
+    .logo-text-wrap { line-height: 1.2; }
+    .logo-name { font-weight: 700; font-size: 13px; color: var(--navy); letter-spacing: .02em; }
+    .logo-tagline { font-size: 10px; color: var(--gray); }
+    .header-right { margin-left: auto; font-size: 11px; color: var(--gray); }
+
+    /* ── PROGRESS ─────────────────────────────────── */
+    .prog-wrap { width: 100%; height: 5px; background: var(--gray-lt); flex-shrink: 0; }
+    .prog-fill { height: 100%; background: var(--orange); transition: width .4s ease; }
+    .prog-label { font-size: 11px; color: var(--gray); padding: 6px 28px 0; align-self: flex-start; }
+
+    /* ── BUTTONS ─────────────────────────────────── */
+    .btn {
+      font-family: Tahoma, sans-serif; font-weight: 700;
+      font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+      padding: 12px 28px; border-radius: 50px; border: none;
+      cursor: pointer; transition: var(--trans); display: inline-block;
+      text-decoration: none;
+    }
+    .btn-primary   { background: var(--navy); color: var(--white); }
+    .btn-primary:hover { background: var(--navy-dark); transform: translateY(-1px); box-shadow: var(--shadow); }
+    .btn-orange    { background: var(--orange); color: var(--white); }
+    .btn-orange:hover { background: #b8501a; transform: translateY(-1px); box-shadow: var(--shadow); }
+    .btn-outline   { background: transparent; color: var(--navy); border: 2px solid var(--navy); }
+    .btn-outline:hover { background: var(--teal-pale); }
+    .btn:disabled  { opacity: .45; cursor: not-allowed; transform: none !important; }
+
+    /* ── FADE ANIM ─────────────────────────────────── */
+    @keyframes fadeUp { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:none; } }
+    .fade-in { animation: fadeUp .35s ease forwards; }
+
+    /* ══════════════════════════════════════════════
+       WELCOME SCREEN
+    ══════════════════════════════════════════════ */
+    .welcome-body {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 48px 28px;
+      max-width: 680px; margin: 0 auto; width: 100%;
+    }
+    .welcome-badge {
+      display: inline-block; background: var(--teal-pale);
+      color: var(--blue); font-size: 10px; font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase;
+      padding: 5px 14px; border-radius: 50px; margin-bottom: 18px;
+      border: 1px solid var(--teal-bg);
+    }
+    .welcome-body h1 {
+      font-size: 2.2rem; font-weight: 700; line-height: 1.2;
+      margin-bottom: 16px; color: var(--navy);
+    }
+    .welcome-body h1 span { color: var(--orange); }
+    .welcome-sub {
+      font-size: 15px; color: #444; line-height: 1.7;
+      margin-bottom: 32px; max-width: 520px;
+    }
+    .step-cards {
+      display: flex; gap: 14px; margin-bottom: 32px;
+      flex-wrap: wrap; justify-content: center;
+    }
+    .step-card {
+      background: var(--white); border-radius: var(--radius);
+      padding: 18px 16px; width: 180px; text-align: center;
+      box-shadow: var(--shadow); border-top: 3px solid var(--navy);
+    }
+    .step-card .step-icon { font-size: 1.8rem; margin-bottom: 8px; }
+    .step-card p { font-size: 12px; color: #555; line-height: 1.5; }
+    .consent { font-size: 11px; color: var(--gray); margin-top: 14px; max-width: 460px; line-height: 1.6; }
+
+    /* ══════════════════════════════════════════════
+       DCE SCREEN
+    ══════════════════════════════════════════════ */
+    #screen-dce { padding-bottom: 40px; }
+    .dce-q { font-size: 1.2rem; font-weight: 700; color: var(--navy); text-align: center; padding: 22px 28px 4px; }
+    .dce-sub { font-size: 12px; color: var(--gray); text-align: center; margin-bottom: 20px; }
+
+    .dce-row {
+      display: flex; gap: 20px; padding: 0 24px;
+      max-width: 960px; width: 100%; justify-content: center; flex-wrap: wrap;
+    }
+    .vs-divider {
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 13px; color: var(--gray);
+      flex-shrink: 0; padding-top: 60px;
+    }
+    @media (max-width: 700px) { .vs-divider { padding-top: 0; } }
+
+    /* Product card */
+    .pcard {
+      background: var(--white); border-radius: var(--radius);
+      box-shadow: var(--shadow); flex: 1;
+      min-width: 260px; max-width: 400px;
+      overflow: hidden; transition: var(--trans);
+      cursor: pointer; border: 3px solid transparent;
+    }
+    .pcard:hover { box-shadow: var(--shadow-lg); transform: translateY(-3px); border-color: var(--blue-light); }
+    .pcard.selected { border-color: var(--orange); background: var(--orange-lt); }
+    .pcard.selected .pcard-hd { background: var(--orange); }
+
+    .pcard-hd { background: var(--navy); color: var(--white); padding: 16px 20px; }
+    .pcard-hd .picon { font-size: 1.6rem; margin-bottom: 4px; }
+    .pcard-hd h3 { color: var(--white); font-size: 15px; margin-bottom: 2px; }
+    .pcard-hd .pcard-category { font-size: 10px; color: var(--teal-bg); opacity: .9; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 3px; }
+    .pcard-hd .tagline { font-size: 11px; opacity: .75; }
+
+    .pcard-body { padding: 12px 18px; }
+    .arow {
+      display: flex; gap: 8px; padding: 7px 0;
+      border-bottom: 1px solid var(--gray-pale); align-items: flex-start;
+    }
+    .arow:last-child { border-bottom: none; }
+    .aicon { font-size: 13px; flex-shrink: 0; margin-top: 2px; width: 18px; text-align: center; }
+    .alabel { font-size: 10px; color: var(--gray); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+    .aval { font-size: 12px; color: var(--text); line-height: 1.4; }
+
+    .tag {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      letter-spacing: .05em; padding: 2px 7px; border-radius: 3px;
+    }
+    .tag-h  { background: #fff3cd; color: #7d5a00; }
+    .tag-nh { background: var(--green-pale); color: #1b5e20; }
+    .tag-pr { background: #fce4ec; color: #880e4f; }
+    .tag-sa { background: var(--teal-pale); color: var(--blue); }
+
+    .choose-btn {
+      display: block; width: calc(100% - 36px); margin: 4px 18px 16px;
+      background: var(--navy); color: var(--white);
+      font-family: Tahoma, sans-serif; font-weight: 700;
+      font-size: 11px; letter-spacing: .07em; text-transform: uppercase;
+      padding: 10px; border-radius: 6px; border: none; cursor: pointer;
+      transition: var(--trans);
+    }
+    .choose-btn:hover { background: var(--blue); }
+    .pcard.selected .choose-btn { background: var(--orange); }
+
+    .neither-row { display: flex; justify-content: center; margin-top: 14px; }
+    .btn-neither {
+      font-family: Tahoma, sans-serif; font-size: 12px; color: var(--gray);
+      background: none; border: 1px solid var(--gray-lt); border-radius: 50px;
+      padding: 8px 22px; cursor: pointer; transition: var(--trans);
+    }
+    .btn-neither:hover { border-color: var(--gray); color: var(--text); }
+
+    /* ══════════════════════════════════════════════
+       TRANSITION SCREEN
+    ══════════════════════════════════════════════ */
+    .trans-body {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 48px 28px;
+      max-width: 560px; margin: 0 auto;
+    }
+    .checkmark {
+      width: 72px; height: 72px; background: var(--green-pale);
+      border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; font-size: 2.2rem; margin: 0 auto 22px;
+      border: 2px solid var(--green);
+    }
+    .trans-body h2 { font-size: 1.6rem; margin-bottom: 12px; }
+    .trans-body p { font-size: 14px; color: #444; line-height: 1.7; margin-bottom: 28px; }
+
+    /* ══════════════════════════════════════════════
+       BUILDER SCREEN
+    ══════════════════════════════════════════════ */
+    #screen-builder { align-items: stretch; }
+    .builder-wrap {
+      display: grid; grid-template-columns: 1fr 360px;
+      gap: 28px; flex: 1; max-width: 1180px; width: 100%;
+      margin: 0 auto; padding: 22px 28px 48px;
+    }
+    @media (max-width: 800px) {
+      .builder-wrap { grid-template-columns: 1fr; }
+      .builder-card-col { order: -1; }
+    }
+
+    .builder-opts-col h2 { font-size: 1rem; margin-bottom: 4px; }
+    .builder-opts-col .sub { font-size: 12px; color: var(--gray); margin-bottom: 18px; }
+
+    .attr-group { margin-bottom: 16px; }
+    .attr-group-lbl {
+      font-size: 11px; font-weight: 700; color: var(--navy);
+      text-transform: uppercase; letter-spacing: .07em;
+      margin-bottom: 7px; display: flex; align-items: center; gap: 5px;
+    }
+    .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+    .chip {
+      background: var(--white); border: 2px solid var(--gray-lt);
+      border-radius: 50px; padding: 5px 14px; font-size: 12px;
+      cursor: grab; transition: var(--trans); user-select: none;
+    }
+    .chip:hover { border-color: var(--blue); color: var(--blue); background: var(--teal-pale); }
+    .chip.dragging { opacity: .45; cursor: grabbing; }
+    .chip.chip-sel { background: var(--orange); border-color: var(--orange); color: var(--white); }
+
+    /* Ideal card */
+    .builder-card-col { position: sticky; top: 20px; height: fit-content; }
+    .ideal-card {
+      background: var(--white); border-radius: var(--radius);
+      box-shadow: var(--shadow); overflow: hidden;
+      border: 2px solid var(--teal-bg);
+    }
+    .ideal-hd {
+      background: var(--navy); color: var(--white);
+      padding: 16px 20px; text-align: center;
+    }
+    .ideal-hd h3 { color: var(--white); font-size: 14px; margin-bottom: 2px; }
+    .ideal-hd p { font-size: 11px; opacity: .7; }
+    .ideal-body { padding: 10px 18px; }
+
+    .islot { padding: 9px 0; border-bottom: 1px solid var(--gray-pale); }
+    .islot:last-child { border-bottom: none; }
+    .islot-lbl {
+      font-size: 10px; font-weight: 700; color: var(--gray);
+      text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px;
+    }
+    .islot-val {
+      font-size: 12px; min-height: 22px;
+      border-radius: 5px; padding: 3px 7px; transition: var(--trans);
+    }
+    .islot-val.empty {
+      color: var(--gray-lt); border: 1.5px dashed var(--gray-lt);
+      font-style: italic; font-size: 11px;
+    }
+    .islot-val.filled {
+      background: var(--orange-lt); color: var(--orange);
+      font-weight: 700; border: 1.5px solid var(--orange);
+    }
+    .islot.drag-over .islot-val { border-color: var(--blue); background: var(--teal-pale); }
+
+    .ideal-footer { padding: 6px 18px 16px; }
+    .ideal-progress { font-size: 11px; color: var(--gray); text-align: center; margin-bottom: 10px; }
+    .ideal-footer .btn { width: 100%; text-align: center; display: block; }
+
+    /* ══════════════════════════════════════════════
+       SUMMARY SCREEN
+    ══════════════════════════════════════════════ */
+    #screen-summary { padding-bottom: 48px; }
+    .summary-hero {
+      width: 100%; background: var(--navy); color: var(--white);
+      text-align: center; padding: 36px 28px;
+    }
+    .summary-hero h2 { color: var(--white); font-size: 1.5rem; margin-bottom: 6px; }
+    .summary-hero p { font-size: 13px; opacity: .8; }
+
+    .summary-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 24px; max-width: 1000px; width: 100%;
+      margin: 0 auto; padding: 22px 28px 0;
+    }
+    @media (max-width: 680px) { .summary-grid { grid-template-columns: 1fr; } }
+
+    .sum-section { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+    .sum-hd { background: var(--teal-pale); padding: 13px 18px; border-bottom: 2px solid var(--teal-bg); }
+    .sum-hd h3 { font-size: 13px; color: var(--navy); }
+    .sum-body { padding: 14px 18px; }
+
+    .sum-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 7px 0; border-bottom: 1px solid var(--gray-pale); font-size: 12px;
+    }
+    .sum-row:last-child { border-bottom: none; }
+    .sum-row .rlbl { font-size: 10px; color: var(--gray); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+    .sum-row .rdesc { font-size: 12px; color: #444; }
+    .badge { padding: 3px 10px; border-radius: 50px; font-size: 11px; font-weight: 700; }
+    .badge-orange { background: var(--orange-lt); color: var(--orange); }
+    .badge-gray { background: var(--gray-pale); color: var(--gray); }
+
+    .data-note { font-size: 11px; color: var(--gray); text-align: center; padding: 16px 28px 0; max-width: 1000px; width: 100%; margin: 0 auto; }
+    .action-row { display: flex; justify-content: center; gap: 12px; margin: 20px 0 0; flex-wrap: wrap; }
+
+    /* ── SYNTHESIS BANNER ── */
+    .synthesis-wrap {
+      max-width: 1000px; width: 100%; margin: 0 auto; padding: 24px 28px 0;
+    }
+    .synthesis-card {
+      background: var(--navy); color: var(--white);
+      border-radius: var(--radius); padding: 22px 28px;
+      display: flex; gap: 18px; align-items: flex-start;
+      box-shadow: var(--shadow-lg);
+    }
+    .synthesis-icon { font-size: 2.2rem; flex-shrink: 0; margin-top: 2px; }
+    .synthesis-label {
+      font-size: 10px; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--teal-bg); margin-bottom: 4px;
+    }
+    .synthesis-headline { font-size: 1.25rem; font-weight: 700; color: var(--white); margin-bottom: 6px; }
+    .synthesis-body { font-size: 13px; color: #c8d8ec; line-height: 1.6; }
+
+    /* ── MATCH CARDS ── */
+    .matches-wrap {
+      max-width: 1000px; width: 100%; margin: 0 auto; padding: 22px 28px 0;
+    }
+    .matches-wrap h3 {
+      font-size: 13px; font-weight: 700; color: var(--navy);
+      margin-bottom: 14px; text-transform: uppercase; letter-spacing: .07em;
+    }
+    .match-cards-row { display: flex; gap: 14px; flex-wrap: wrap; }
+    .match-card {
+      background: var(--white); border-radius: var(--radius);
+      box-shadow: var(--shadow); flex: 1; min-width: 220px; max-width: 320px;
+      overflow: hidden; border-top: 3px solid var(--orange);
+    }
+    .match-card-hd { padding: 12px 16px; background: var(--orange-lt); }
+    .match-card-hd .rank { font-size: 10px; font-weight: 700; color: var(--orange); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 4px; }
+    .match-card-hd .mrealname { font-size: 17px; font-weight: 700; color: var(--navy); letter-spacing: -.01em; line-height: 1.2; }
+    .match-card-hd .mcategory { font-size: 11px; color: var(--blue); font-weight: 600; margin-top: 2px; }
+    .match-card-hd .mmeta { font-size: 10px; color: var(--gray); margin-top: 3px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .match-card-hd .mmeta .mstage { background: var(--navy); color: var(--white); border-radius: 3px; padding: 1px 5px; font-size: 9px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .match-card-hd .mtagline { font-size: 11px; color: var(--gray); margin-top: 2px; }
+    .match-score-bar-wrap { padding: 8px 16px 0; }
+    .match-score-label { font-size: 10px; color: var(--gray); display: flex; justify-content: space-between; margin-bottom: 3px; }
+    .match-score-bar { height: 6px; background: var(--gray-lt); border-radius: 3px; overflow: hidden; }
+    .match-score-fill { height: 100%; background: var(--orange); border-radius: 3px; }
+    .match-card-body { padding: 8px 16px 14px; }
+    .match-arow { display: flex; gap: 6px; padding: 5px 0; border-bottom: 1px solid var(--gray-pale); align-items: flex-start; }
+    .match-arow:last-child { border-bottom: none; }
+    .match-aicon { font-size: 11px; flex-shrink: 0; width: 16px; text-align: center; margin-top: 2px; }
+    .match-alabel { font-size: 9px; color: var(--gray); font-weight: 700; text-transform: uppercase; }
+    .match-aval { font-size: 11px; color: var(--text); line-height: 1.4; }
+    .match-highlight { color: var(--orange); font-weight: 700; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════ WELCOME ═══════════════════════ -->
+<div id="screen-welcome" class="screen active">
+  <header class="site-header">
+    <div class="logo-block">
+      <!-- Simplified MCI logo mark -->
+      <svg class="logo-svg" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="44" height="44" rx="4" fill="#002D72"/>
+        <rect x="8" y="8" width="12" height="12" rx="1" fill="#7C878E"/>
+        <circle cx="13" cy="28" r="5" fill="#7C878E"/>
+        <text x="24" y="20" font-family="Tahoma,Arial" font-weight="700" font-size="11" fill="white">MCI</text>
+        <line x1="24" y1="24" x2="38" y2="24" stroke="white" stroke-width="1.5"/>
+        <line x1="24" y1="28" x2="38" y2="28" stroke="white" stroke-width="1.5"/>
+        <line x1="24" y1="32" x2="34" y2="32" stroke="white" stroke-width="1.5"/>
+      </svg>
+      <div class="logo-text-wrap">
+        <div class="logo-name">Male Contraceptive Initiative</div>
+        <div class="logo-tagline">Reproductive Autonomy for All</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="welcome-body fade-in">
+    <div class="welcome-badge">Preference Study</div>
+    <h1>What would you <span>choose?</span></h1>
+    <p class="welcome-sub">
+      Male contraception is coming — and your voice matters.
+      Compare real products in development, then build the profile that fits your life.
+    </p>
+
+    <div class="step-cards">
+      <div class="step-card">
+        <div class="step-icon">⚖️</div>
+        <p>Compare two options at a time and pick your preference</p>
+      </div>
+      <div class="step-card">
+        <div class="step-icon">🎯</div>
+        <p>Build your ideal profile by dragging your preferred attributes</p>
+      </div>
+      <div class="step-card">
+        <div class="step-icon">🔒</div>
+        <p>Completely anonymous — no personal information collected</p>
+      </div>
+    </div>
+
+    <button class="btn btn-orange" onclick="startDCE()">Get Started →</button>
+    <p class="consent">
+      Your anonymous responses help researchers understand what matters most to people considering
+      male contraception. This takes about 5–7 minutes. You may stop at any time.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════ DCE ═══════════════════════ -->
+<div id="screen-dce" class="screen">
+  <header class="site-header">
+    <div class="logo-block">
+      <svg class="logo-svg" viewBox="0 0 44 44" fill="none"><rect width="44" height="44" rx="4" fill="#002D72"/><rect x="8" y="8" width="12" height="12" rx="1" fill="#7C878E"/><circle cx="13" cy="28" r="5" fill="#7C878E"/><text x="24" y="20" font-family="Tahoma,Arial" font-weight="700" font-size="11" fill="white">MCI</text><line x1="24" y1="24" x2="38" y2="24" stroke="white" stroke-width="1.5"/><line x1="24" y1="28" x2="38" y2="28" stroke="white" stroke-width="1.5"/><line x1="24" y1="32" x2="34" y2="32" stroke="white" stroke-width="1.5"/></svg>
+      <div class="logo-text-wrap">
+        <div class="logo-name">Male Contraceptive Initiative</div>
+        <div class="logo-tagline">Reproductive Autonomy for All</div>
+      </div>
+    </div>
+  </header>
+  <div class="prog-wrap"><div class="prog-fill" id="dce-prog" style="width:0%"></div></div>
+  <p class="prog-label" id="dce-prog-lbl">Round 1 of 8</p>
+
+  <h2 class="dce-q">If these were your only two options, which would you prefer?</h2>
+  <p class="dce-sub">Click a card to select it — you'll advance automatically</p>
+
+  <div class="dce-row" id="dce-row"><!-- injected --></div>
+
+  <div class="neither-row">
+    <button class="btn-neither" onclick="recordChoice('neither')">Neither of these works for me</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════ TRANSITION ═══════════════════════ -->
+<div id="screen-transition" class="screen">
+  <header class="site-header">
+    <div class="logo-block">
+      <svg class="logo-svg" viewBox="0 0 44 44" fill="none"><rect width="44" height="44" rx="4" fill="#002D72"/><rect x="8" y="8" width="12" height="12" rx="1" fill="#7C878E"/><circle cx="13" cy="28" r="5" fill="#7C878E"/><text x="24" y="20" font-family="Tahoma,Arial" font-weight="700" font-size="11" fill="white">MCI</text><line x1="24" y1="24" x2="38" y2="24" stroke="white" stroke-width="1.5"/><line x1="24" y1="28" x2="38" y2="28" stroke="white" stroke-width="1.5"/><line x1="24" y1="32" x2="34" y2="32" stroke="white" stroke-width="1.5"/></svg>
+      <div class="logo-text-wrap">
+        <div class="logo-name">Male Contraceptive Initiative</div>
+        <div class="logo-tagline">Reproductive Autonomy for All</div>
+      </div>
+    </div>
+  </header>
+  <div class="trans-body fade-in">
+    <div class="checkmark">✅</div>
+    <h2>Comparisons complete!</h2>
+    <p>
+      Now for the fun part — build your ideal male contraceptive.
+      Drag any attribute chip onto your profile card, or just click to select.
+    </p>
+    <button class="btn btn-orange" onclick="showScreen('builder')">Build My Ideal Profile →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════ BUILDER ═══════════════════════ -->
+<div id="screen-builder" class="screen">
+  <header class="site-header">
+    <div class="logo-block">
+      <svg class="logo-svg" viewBox="0 0 44 44" fill="none"><rect width="44" height="44" rx="4" fill="#002D72"/><rect x="8" y="8" width="12" height="12" rx="1" fill="#7C878E"/><circle cx="13" cy="28" r="5" fill="#7C878E"/><text x="24" y="20" font-family="Tahoma,Arial" font-weight="700" font-size="11" fill="white">MCI</text><line x1="24" y1="24" x2="38" y2="24" stroke="white" stroke-width="1.5"/><line x1="24" y1="28" x2="38" y2="28" stroke="white" stroke-width="1.5"/><line x1="24" y1="32" x2="34" y2="32" stroke="white" stroke-width="1.5"/></svg>
+      <div class="logo-text-wrap">
+        <div class="logo-name">Male Contraceptive Initiative</div>
+        <div class="logo-tagline">Reproductive Autonomy for All</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="builder-wrap">
+    <!-- Left: attribute chips -->
+    <div class="builder-opts-col">
+      <h2>Choose your ideal attributes</h2>
+      <p class="sub">Drag any option to your profile card, or click to select it.</p>
+      <div id="builder-attrs"><!-- injected --></div>
+    </div>
+
+    <!-- Right: ideal card -->
+    <div class="builder-card-col">
+      <div class="ideal-card">
+        <div class="ideal-hd">
+          <h3>⭐ My Ideal Contraceptive</h3>
+          <p>Drag or click options to fill in your profile</p>
+        </div>
+        <div class="ideal-body" id="ideal-slots"><!-- injected --></div>
+        <div class="ideal-footer">
+          <p class="ideal-progress" id="builder-prog">0 of 8 attributes selected</p>
+          <button class="btn btn-orange" id="btn-submit-builder" onclick="submitBuilder()" disabled>
+            See My Results →
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ SUMMARY ═══════════════════════ -->
+<div id="screen-summary" class="screen">
+  <header class="site-header">
+    <div class="logo-block">
+      <svg class="logo-svg" viewBox="0 0 44 44" fill="none"><rect width="44" height="44" rx="4" fill="#002D72"/><rect x="8" y="8" width="12" height="12" rx="1" fill="#7C878E"/><circle cx="13" cy="28" r="5" fill="#7C878E"/><text x="24" y="20" font-family="Tahoma,Arial" font-weight="700" font-size="11" fill="white">MCI</text><line x1="24" y1="24" x2="38" y2="24" stroke="white" stroke-width="1.5"/><line x1="24" y1="28" x2="38" y2="28" stroke="white" stroke-width="1.5"/><line x1="24" y1="32" x2="34" y2="32" stroke="white" stroke-width="1.5"/></svg>
+      <div class="logo-text-wrap">
+        <div class="logo-name">Male Contraceptive Initiative</div>
+        <div class="logo-tagline">Reproductive Autonomy for All</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="summary-hero">
+    <h2>Your Preferences</h2>
+    <p>Here's what you told us — thank you for contributing to the future of male contraception.</p>
+  </div>
+
+  <!-- Synthesis banner -->
+  <div class="synthesis-wrap">
+    <div class="synthesis-card fade-in" id="synthesis-card">
+      <div class="synthesis-icon">💡</div>
+      <div>
+        <div class="synthesis-label">Your ideal method</div>
+        <div class="synthesis-headline" id="synthesis-headline"><!-- injected --></div>
+        <div class="synthesis-body" id="synthesis-body"><!-- injected --></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Closest matches -->
+  <div class="matches-wrap">
+    <h3>🔬 Closest real-world approaches in development</h3>
+    <div class="match-cards-row" id="match-cards"><!-- injected --></div>
+  </div>
+
+  <!-- DCE + Ideal profile detail -->
+  <div class="summary-grid">
+    <div class="sum-section">
+      <div class="sum-hd"><h3>⚖️ Comparison Choices</h3></div>
+      <div class="sum-body" id="sum-dce"><!-- injected --></div>
+    </div>
+    <div class="sum-section">
+      <div class="sum-hd"><h3>⭐ Your Ideal Profile (full)</h3></div>
+      <div class="sum-body" id="sum-ideal"><!-- injected --></div>
+    </div>
+  </div>
+
+  <p class="data-note" id="data-note">Recording your response…</p>
+  <div class="action-row">
+    <a href="https://www.malecontraceptive.org" class="btn btn-outline" target="_blank">Learn More at MCI</a>
+    <button class="btn btn-primary" onclick="location.reload()">Start Over</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  CONFIG — paste your Google Apps Script URL here
+// ═══════════════════════════════════════════════════════════
+const CONFIG = {
+  ENDPOINT_URL: '',   // e.g. 'https://script.google.com/macros/s/AKfycbyBYAC47-gitJJdv4d-T3myA96dGZyhjAquf0ZS0uT1pBF4Xa6Bx_0m-dxSGGTOidkj/exec'
+  DCE_ROUNDS: 5,
+};
+
+// ═══════════════════════════════════════════════════════════
+//  PRODUCT PROFILES
+// ═══════════════════════════════════════════════════════════
+// Side effect shorthand — mirrors the Kaur et al. (2022) DCE attribute framing
+// Hormonal products affect sex drive, testes, ejaculate volume, energy, and mood.
+// Non-hormonal products (except ejac blockers) show no change on these dimensions.
+const PRODUCTS = [
+  {
+    id: 'hormonal-implant', name: 'Hormonal Implant',
+    realName: 'Progestin / T Implant', developer: 'NICHD · Population Council', stage: 'Phase 1–2',
+    tagline: 'Long-acting, set-and-forget', icon: '💉',
+    attrs: {
+      efficacy:          '~99% effective',
+      administration:    'Implanted device (lasts 2–3 years)',
+      onset:             '~3 months to full effect',
+      returnToFertility: '3–6 months after removal',
+      hormonal:          'Hormonal',
+      providerRequired:  'Provider visit required',
+      sexDrive:          'May lower sex drive',
+      testes:            'May shrink slightly',
+      ejaculation:       'Less fluid at orgasm',
+      energy:            'Possible fatigue or weight changes',
+      mood:              'Possible mood swings',
+    }
+  },
+  {
+    id: 'nonhormonal-implant', name: 'Non-Hormonal Implant',
+    realName: 'Non-Hormonal Implant', developer: 'Multiple groups (early research)', stage: 'Preclinical',
+    tagline: 'Long-acting, no hormones', icon: '🔩',
+    attrs: {
+      efficacy:          '~99% effective',
+      administration:    'Implanted device (lasts 1–3 years)',
+      onset:             '~1 month to full effect',
+      returnToFertility: '1–3 months after removal',
+      hormonal:          'Non-hormonal',
+      providerRequired:  'Provider visit required',
+      sexDrive:          'No change',
+      testes:            'No change',
+      ejaculation:       'No change',
+      energy:            'No change',
+      mood:              'No change',
+    }
+  },
+  {
+    id: 'on-demand-pill', name: 'On-Demand Pill',
+    realName: 'TDI-11861', developer: 'Weill Cornell / NICHD', stage: 'Phase 1',
+    tagline: 'Take it when you need it', icon: '💊',
+    attrs: {
+      efficacy:          '~86–90% effective',
+      administration:    'Single pill taken 1–2 hrs before sex',
+      onset:             '1–2 hours',
+      returnToFertility: 'Within 24 hours',
+      hormonal:          'Non-hormonal',
+      providerRequired:  'Self-administered',
+      sexDrive:          'No change',
+      testes:            'No change',
+      ejaculation:       'No change',
+      energy:            'No change',
+      mood:              'No change',
+    }
+  },
+  {
+    id: 'daily-hormonal-pill', name: 'Daily Hormonal Pill',
+    realName: 'DMAU / 11-β-MNTDC', developer: 'NICHD / Univ. of Washington', stage: 'Phase 2',
+    tagline: 'Like hormonal birth control for men', icon: '📅',
+    attrs: {
+      efficacy:          '~95% effective',
+      administration:    'Daily pill',
+      onset:             '~3 months to full effect',
+      returnToFertility: '1–3 months after stopping',
+      hormonal:          'Hormonal',
+      providerRequired:  'Self-administered',
+      sexDrive:          'May lower sex drive',
+      testes:            'May shrink slightly',
+      ejaculation:       'Less fluid at orgasm',
+      energy:            'Possible fatigue or weight changes',
+      mood:              'Possible mood swings',
+    }
+  },
+  {
+    id: 'daily-nonhormonal-pill', name: 'Non-Hormonal Daily Pill',
+    realName: 'YCT-529', developer: 'YourChoice Therapeutics / Yale', stage: 'Phase 1',
+    tagline: 'In clinical trials now', icon: '🌿',
+    attrs: {
+      efficacy:          '~95% effective',
+      administration:    'Daily pill',
+      onset:             '3–4 weeks to full effect',
+      returnToFertility: '1–2 months after stopping',
+      hormonal:          'Non-hormonal',
+      providerRequired:  'Self-administered',
+      sexDrive:          'No change',
+      testes:            'No change',
+      ejaculation:       'No change',
+      energy:            'No change',
+      mood:              'No change',
+    }
+  },
+  {
+    id: 'monthly-injection', name: 'Monthly Injection',
+    realName: 'NE/TU Injectable', developer: 'WHO/HRP', stage: 'Phase 2–3',
+    tagline: 'One shot a month', icon: '🩺',
+    attrs: {
+      efficacy:          '~99% effective',
+      administration:    'Monthly injection (clinic or self-inject)',
+      onset:             '~4 weeks to full effect',
+      returnToFertility: '3–6 months after stopping',
+      hormonal:          'Hormonal',
+      providerRequired:  'Provider visit or self-inject',
+      sexDrive:          'May lower sex drive',
+      testes:            'May shrink slightly',
+      ejaculation:       'Less fluid at orgasm',
+      energy:            'Possible fatigue or weight changes',
+      mood:              'Possible mood swings',
+    }
+  },
+  {
+    id: 'topical-gel', name: 'Topical Gel',
+    realName: 'NES/T Gel', developer: 'Population Council / NICHD', stage: 'Phase 2b–3',
+    tagline: 'Daily rub-on, applied to skin', icon: '🧴',
+    attrs: {
+      efficacy:          '~95% effective',
+      administration:    'Daily gel (applied to shoulders/upper arms)',
+      onset:             '~3 months to full effect',
+      returnToFertility: '3–4 months after stopping',
+      hormonal:          'Hormonal',
+      providerRequired:  'Self-administered',
+      sexDrive:          'May lower sex drive',
+      testes:            'May shrink slightly',
+      ejaculation:       'Less fluid at orgasm',
+      energy:            'Possible fatigue or weight changes',
+      mood:              'Possible mood swings',
+    }
+  },
+  {
+    id: 'on-demand-ejac', name: 'On-Demand Ejaculation Blocker',
+    realName: 'Silodosin (on-demand)', developer: 'Multiple research groups', stage: 'Phase 2',
+    tagline: 'No sperm ejaculated — dry orgasm', icon: '⚡',
+    attrs: {
+      efficacy:          '~90% effective',
+      administration:    'Single pill taken ~2 hrs before sex',
+      onset:             '~2 hours',
+      returnToFertility: 'Within 24 hours',
+      hormonal:          'Non-hormonal',
+      providerRequired:  'Self-administered',
+      sexDrive:          'No change',
+      testes:            'No change',
+      ejaculation:       'No fluids at orgasm (dry orgasm)',
+      energy:            'No change',
+      mood:              'No change',
+    }
+  },
+  {
+    id: 'daily-ejac', name: 'Daily Ejaculation Blocker',
+    realName: 'Daily Silodosin', developer: 'Multiple research groups', stage: 'Phase 2',
+    tagline: 'Ongoing protection, dry orgasm', icon: '🛡️',
+    attrs: {
+      efficacy:          '~95% effective',
+      administration:    'Daily pill',
+      onset:             '~1 week to full effect',
+      returnToFertility: 'Days after stopping',
+      hormonal:          'Non-hormonal',
+      providerRequired:  'Self-administered',
+      sexDrive:          'No change',
+      testes:            'No change',
+      ejaculation:       'No fluids at orgasm (dry orgasm)',
+      energy:            'No change',
+      mood:              'No change',
+    }
+  },
+  {
+    id: 'vas-biodeg', name: 'Vas-Occlusive Gel (Biodegradable)',
+    realName: 'ADAM (Contraline)', developer: 'Contraline Inc.', stage: 'Phase 1–2',
+    tagline: 'Dissolves naturally in ~2 years', icon: '🧬',
+    attrs: {
+      efficacy:          '~99% effective',
+      administration:    'Single injection into vas deferens',
+      onset:             'Immediate',
+      returnToFertility: '~2 years (dissolves on its own)',
+      hormonal:          'Non-hormonal',
+      providerRequired:  'Provider visit required',
+      sexDrive:          'No change',
+      testes:            'No change',
+      ejaculation:       'No change',
+      energy:            'No change',
+      mood:              'No change',
+    }
+  },
+  {
+    id: 'vas-longterm', name: 'Vas-Occlusive Gel (Long-Term)',
+    realName: 'Vasalgel / RISUG', developer: 'Parsemus Foundation / IIT Kharagpur', stage: 'Phase 2–3',
+    tagline: '10+ years; second procedure to reverse', icon: '🔒',
+    attrs: {
+      efficacy:          '~99.9% effective',
+      administration:    'Single injection into vas deferens',
+      onset:             'Immediate',
+      returnToFertility: 'Reversal procedure required (10+ yr duration)',
+      hormonal:          'Non-hormonal',
+      providerRequired:  'Provider required (placement & reversal)',
+      sexDrive:          'No change',
+      testes:            'No change',
+      ejaculation:       'No change',
+      energy:            'No change',
+      mood:              'No change',
+    }
+  },
+];
+
+// ═══════════════════════════════════════════════════════════
+//  ATTRIBUTE META (for display)
+// ═══════════════════════════════════════════════════════════
+// Labels match the Kaur et al. DCE instrument question wording where possible
+const ATTR_META = {
+  efficacy:          { label: 'How effective is it?',              icon: '🎯' },
+  administration:    { label: 'How do I take it?',                 icon: '📋' },
+  onset:             { label: 'How fast does it work?',            icon: '⏱️' },
+  returnToFertility: { label: 'When can I be fertile again?',      icon: '🔄' },
+  hormonal:          { label: 'Hormonal?',                         icon: '🧪' },
+  providerRequired:  { label: 'Provider needed?',                  icon: '🏥' },
+  sexDrive:          { label: 'Affect sex drive?',                 icon: '❤️' },
+  testes:            { label: 'Affect testes size?',               icon: '⚕️' },
+  ejaculation:       { label: 'Affect ejaculation?',               icon: '💧' },
+  energy:            { label: 'Affect energy?',                    icon: '⚡' },
+  mood:              { label: 'Affect mood?',                      icon: '🧠' },
+};
+
+// ═══════════════════════════════════════════════════════════
+//  IDEAL BUILDER ATTRIBUTE OPTIONS
+// ═══════════════════════════════════════════════════════════
+// Ideal builder attributes — anchored to the Kaur et al. (2022) DCE attribute list.
+// Side effects are presented as individual tolerance questions (sex drive, testes,
+// ejaculation, energy/mood) rather than a collapsed single-item list.
+const IDEAL_ATTRS = [
+  { id: 'efficacy', label: 'How effective?', icon: '🎯',
+    options: ['~86–90% effective', '~95% effective', '~99% effective', '~99.9% effective'] },
+  { id: 'administration', label: 'How do I take it?', icon: '📋',
+    options: ['On-demand dose (before sex)', 'Daily pill', 'Daily gel', 'Monthly injection', 'Implanted device', 'One-time vas procedure'] },
+  { id: 'onset', label: 'How fast does it work?', icon: '⏱️',
+    options: ['Within hours', '~1 week', '3–4 weeks', '~3 months'] },
+  { id: 'returnToFertility', label: 'When can I be fertile again?', icon: '🔄',
+    options: ['Within 24 hours', 'Within days', '1–3 months', '3–6 months', '~2 years (auto-reverses)', 'Requires a reversal procedure'] },
+  { id: 'hormonal', label: 'Hormonal preference?', icon: '🧪',
+    options: ['Hormonal is fine', 'Non-hormonal only', 'No preference'] },
+  { id: 'providerRequired', label: 'Provider involvement?', icon: '🏥',
+    options: ['Fully self-administered', 'Provider for placement is OK', 'Provider for placement & removal is OK'] },
+  { id: 'sexDrive', label: 'Affect sex drive?', icon: '❤️',
+    options: ['No change preferred', 'Lower sex drive is acceptable', "Doesn't matter to me"] },
+  { id: 'testes', label: 'Affect testes size?', icon: '⚕️',
+    options: ['No change preferred', 'Minor shrinkage is acceptable', "Doesn't matter to me"] },
+  { id: 'ejaculation', label: 'Affect ejaculation?', icon: '💧',
+    options: ['No change preferred', 'Less fluid is acceptable', 'Dry orgasm (no fluid) is acceptable', "Doesn't matter to me"] },
+  { id: 'energyMood', label: 'Affect energy or mood?', icon: '🧠',
+    options: ['No changes preferred', 'Mood or energy changes are acceptable', "Doesn't matter to me"] },
+];
+
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+const S = {
+  sessionId:    crypto.randomUUID(),
+  startTime:    new Date().toISOString(),
+  userAgent:    navigator.userAgent,
+  dceRounds:    [],
+  idealProfile: {},
+  round:        0,
+  pairs:        [],
+};
+
+// ═══════════════════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════════════════
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function makePairs(products, n) {
+  const all = [];
+  for (let i = 0; i < products.length; i++)
+    for (let j = i + 1; j < products.length; j++)
+      all.push([i, j]);
+  return shuffle(all).slice(0, n);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DCE FLOW
+// ═══════════════════════════════════════════════════════════
+function startDCE() {
+  S.pairs = makePairs(PRODUCTS, CONFIG.DCE_ROUNDS);
+  S.round = 0;
+  showScreen('dce');
+  renderRound();
+}
+
+function renderRound() {
+  const [iA, iB] = S.pairs[S.round];
+  const pA = PRODUCTS[iA], pB = PRODUCTS[iB];
+
+  const pct = (S.round / CONFIG.DCE_ROUNDS) * 100;
+  document.getElementById('dce-prog').style.width = pct + '%';
+  document.getElementById('dce-prog-lbl').textContent =
+    'Round ' + (S.round + 1) + ' of ' + CONFIG.DCE_ROUNDS;
+
+  document.getElementById('dce-row').innerHTML =
+    cardHTML(pA, 'A') +
+    '<div class="vs-divider">VS</div>' +
+    cardHTML(pB, 'B');
+}
+
+function cardHTML(p, side) {
+  const rows = Object.entries(p.attrs).map(([k, v]) => {
+    const m = ATTR_META[k]; if (!m) return '';
+    let display = v;
+    if (k === 'hormonal') {
+      display = v === 'Non-hormonal'
+        ? '<span class="tag tag-nh">Non-hormonal</span>'
+        : v === 'Hormonal' ? '<span class="tag tag-h">Hormonal</span>' : v;
+    }
+    if (k === 'providerRequired') {
+      display = v.toLowerCase().includes('self')
+        ? '<span class="tag tag-sa">Self-administered</span>'
+        : '<span class="tag tag-pr">Provider required</span>';
+    }
+    return `<div class="arow">
+      <span class="aicon">${m.icon}</span>
+      <div><div class="alabel">${m.label}</div><div class="aval">${display}</div></div>
+    </div>`;
+  }).join('');
+
+  return `<div class="pcard fade-in" id="card-${side}" onclick="selectCard('${side}')">
+    <div class="pcard-hd">
+      <div class="picon">${p.icon}</div>
+      <h3>${p.name}</h3>
+      <span class="tagline">${p.tagline}</span>
+    </div>
+    <div class="pcard-body">${rows}</div>
+    <button class="choose-btn">Choose This Option</button>
+  </div>`;
+}
+
+function selectCard(side) {
+  document.querySelectorAll('.pcard').forEach(c => c.classList.remove('selected'));
+  document.getElementById('card-' + side).classList.add('selected');
+  setTimeout(() => recordChoice(side), 380);
+}
+
+function recordChoice(choice) {
+  const [iA, iB] = S.pairs[S.round];
+  const resolved = choice === 'A' ? PRODUCTS[iA].id
+                 : choice === 'B' ? PRODUCTS[iB].id
+                 : 'neither';
+  S.dceRounds.push({
+    roundIndex: S.round,
+    productA: PRODUCTS[iA].id,
+    productB: PRODUCTS[iB].id,
+    choice: resolved,
+  });
+  S.round++;
+  if (S.round >= CONFIG.DCE_ROUNDS) showScreen('transition');
+  else renderRound();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  IDEAL BUILDER
+// ═══════════════════════════════════════════════════════════
+function initBuilder() {
+  const attrsCont  = document.getElementById('builder-attrs');
+  const slotsCont  = document.getElementById('ideal-slots');
+  attrsCont.innerHTML = '';
+  slotsCont.innerHTML = '';
+
+  IDEAL_ATTRS.forEach(attr => {
+    const chips = attr.options.map(opt =>
+      `<div class="chip" draggable="true"
+        data-attr="${attr.id}" data-value="${opt}"
+        ondragstart="chipDragStart(event)"
+        onclick="chipClick(event)">${opt}</div>`
+    ).join('');
+
+    attrsCont.innerHTML += `
+      <div class="attr-group">
+        <div class="attr-group-lbl">${attr.icon} ${attr.label}</div>
+        <div class="chips" id="chips-${attr.id}">${chips}</div>
+      </div>`;
+
+    slotsCont.innerHTML += `
+      <div class="islot" id="slot-${attr.id}"
+        data-attr="${attr.id}"
+        ondragover="slotDragOver(event)"
+        ondragleave="slotDragLeave(event)"
+        ondrop="slotDrop(event)">
+        <div class="islot-lbl">${attr.icon} ${attr.label}</div>
+        <div class="islot-val empty" id="slotval-${attr.id}">drag or click an option</div>
+      </div>`;
+  });
+
+  updateBuilderProg();
+}
+
+let _dragAttr = null, _dragVal = null;
+
+function chipDragStart(e) {
+  _dragAttr = e.currentTarget.dataset.attr;
+  _dragVal  = e.currentTarget.dataset.value;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'copy';
+}
+function slotDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+  e.dataTransfer.dropEffect = 'copy';
+}
+function slotDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function slotDrop(e) {
+  e.preventDefault();
+  const slot = e.currentTarget;
+  slot.classList.remove('drag-over');
+  if (_dragAttr && slot.dataset.attr === _dragAttr) setIdeal(_dragAttr, _dragVal);
+  document.querySelectorAll('.chip.dragging').forEach(c => c.classList.remove('dragging'));
+  _dragAttr = _dragVal = null;
+}
+function chipClick(e) {
+  setIdeal(e.currentTarget.dataset.attr, e.currentTarget.dataset.value);
+}
+
+function setIdeal(attrId, value) {
+  S.idealProfile[attrId] = value;
+  const sv = document.getElementById('slotval-' + attrId);
+  sv.textContent = value;
+  sv.classList.remove('empty'); sv.classList.add('filled');
+  document.querySelectorAll(`[data-attr="${attrId}"]`).forEach(c => {
+    c.classList.toggle('chip-sel', c.dataset.value === value);
+  });
+  updateBuilderProg();
+}
+
+function updateBuilderProg() {
+  const filled = Object.keys(S.idealProfile).length;
+  const total  = IDEAL_ATTRS.length;
+  document.getElementById('builder-prog').textContent =
+    filled + ' of ' + total + ' attributes selected';
+  const btn = document.getElementById('btn-submit-builder');
+  btn.disabled = filled < total;
+}
+
+function submitBuilder() {
+  buildSummary();
+  sendData();
+  showScreen('summary');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SCORING MAP  — ideal option → product IDs that match
+// ═══════════════════════════════════════════════════════════
+// SCORING MAP — maps each ideal builder selection to the product IDs that match it.
+// Anchored to the Kaur et al. attribute structure: side effects are scored
+// individually (sex drive, testes, ejaculation, energy/mood) rather than collapsed.
+const NO_SE_CHANGE = ['nonhormonal-implant','on-demand-pill','daily-nonhormonal-pill',
+                      'on-demand-ejac','daily-ejac','vas-biodeg','vas-longterm'];
+const HORMONAL_PRODUCTS = ['hormonal-implant','daily-hormonal-pill','monthly-injection','topical-gel'];
+const ALL_IDS = () => PRODUCTS.map(p => p.id);
+
+const SCORING_MAP = {
+  efficacy: {
+    '~86–90% effective':  ALL_IDS(),      // accepts any efficacy level
+    '~95% effective':     ['daily-hormonal-pill','daily-nonhormonal-pill','topical-gel',
+                           'daily-ejac','monthly-injection','hormonal-implant',
+                           'nonhormonal-implant','vas-biodeg','vas-longterm'], // ≥95%
+    '~99% effective':     ['monthly-injection','hormonal-implant','nonhormonal-implant',
+                           'vas-biodeg','vas-longterm'],                        // ≥99%
+    '~99.9% effective':   ['vas-longterm'],                                     // ≥99.9%
+  },
+  administration: {
+    'On-demand dose (before sex)':  ['on-demand-pill','on-demand-ejac'],
+    'Daily pill':                   ['daily-hormonal-pill','daily-nonhormonal-pill','daily-ejac'],
+    'Daily gel':                    ['topical-gel'],
+    'Monthly injection':            ['monthly-injection'],
+    'Implanted device':             ['hormonal-implant','nonhormonal-implant'],
+    'One-time vas procedure':       ['vas-biodeg','vas-longterm'],
+  },
+  onset: {
+    'Within hours': ['on-demand-pill','on-demand-ejac','vas-biodeg','vas-longterm'], // immediate ≈ hours
+    '~1 week':      ['daily-ejac'],
+    '3–4 weeks':    ['daily-nonhormonal-pill','monthly-injection','nonhormonal-implant'],
+    '~3 months':    ['daily-hormonal-pill','topical-gel','hormonal-implant'],
+  },
+  returnToFertility: {
+    'Within 24 hours':               ['on-demand-pill','on-demand-ejac'],
+    'Within days':                   ['daily-ejac'],
+    '1–3 months':                    ['daily-nonhormonal-pill','nonhormonal-implant'],
+    '3–6 months':                    ['daily-hormonal-pill','topical-gel','monthly-injection','hormonal-implant'],
+    '~2 years (auto-reverses)':      ['vas-biodeg'],
+    'Requires a reversal procedure': ['vas-longterm'],
+  },
+  hormonal: {
+    'Hormonal is fine':  HORMONAL_PRODUCTS,
+    'Non-hormonal only': NO_SE_CHANGE,     // all non-hormonal products
+    'No preference':     ALL_IDS(),
+  },
+  providerRequired: {
+    'Fully self-administered':                ['on-demand-pill','daily-hormonal-pill',
+                                               'daily-nonhormonal-pill','topical-gel',
+                                               'on-demand-ejac','daily-ejac'],
+    'Provider for placement is OK':           ['hormonal-implant','nonhormonal-implant',
+                                               'vas-biodeg','monthly-injection'],
+    'Provider for placement & removal is OK': ['vas-longterm'],
+  },
+  // ── Side effects — individually scored (Kaur et al. framing) ──────────────
+  sexDrive: {
+    'No change preferred':          NO_SE_CHANGE,    // only products with no sex drive effect
+    'Lower sex drive is acceptable': ALL_IDS(),       // tolerates lowering → all products score
+    "Doesn't matter to me":          ALL_IDS(),
+  },
+  testes: {
+    'No change preferred':           NO_SE_CHANGE,
+    'Minor shrinkage is acceptable': ALL_IDS(),
+    "Doesn't matter to me":          ALL_IDS(),
+  },
+  ejaculation: {
+    // 'No change' = no ejaculation alteration (neither reduced nor dry orgasm)
+    'No change preferred':               ['nonhormonal-implant','on-demand-pill','daily-nonhormonal-pill',
+                                          'vas-biodeg','vas-longterm'],
+    // 'Less fluid' = tolerates reduced volume (hormonal) but not dry orgasm (ejac blockers)
+    'Less fluid is acceptable':          ['nonhormonal-implant','on-demand-pill','daily-nonhormonal-pill',
+                                          'vas-biodeg','vas-longterm',
+                                          ...HORMONAL_PRODUCTS],
+    'Dry orgasm (no fluid) is acceptable': ALL_IDS(),  // tolerates ejac blockers too
+    "Doesn't matter to me":               ALL_IDS(),
+  },
+  energyMood: {
+    'No changes preferred':               NO_SE_CHANGE, // only no-SE products
+    'Mood or energy changes are acceptable': ALL_IDS(),
+    "Doesn't matter to me":               ALL_IDS(),
+  },
+};
+
+// Score a product against the ideal profile (max = number of attrs = 8)
+function scoreProduct(product, ideal) {
+  let score = 0;
+  for (const [attr, val] of Object.entries(ideal)) {
+    const matches = SCORING_MAP[attr]?.[val] || [];
+    if (matches.includes(product.id)) score++;
+  }
+  return score;
+}
+
+// Return top n products sorted by score descending
+function getTopMatches(ideal, n = 3) {
+  return [...PRODUCTS]
+    .map(p => ({ product: p, score: scoreProduct(p, ideal) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, n);
+}
+
+// Generate a human-readable archetype headline + descriptive sentence
+function synthesizeProfile(ideal) {
+  const adminLabels = {
+    'On-demand dose (before sex)': 'On-Demand Method',
+    'Daily pill':                  'Daily Pill',
+    'Daily gel':                   'Daily Topical Gel',
+    'Monthly injection':           'Monthly Injection',
+    'Implanted device':            'Long-Acting Implant',
+    'One-time vas procedure':      'Vas-Occlusive Approach',
+  };
+  const admin   = adminLabels[ideal.administration] || ideal.administration;
+  const isNH    = ideal.hormonal === 'Non-hormonal only';
+  const isH     = ideal.hormonal === 'Hormonal is fine';
+  const hormStr = isNH ? 'Non-Hormonal ' : (isH ? 'Hormonal ' : '');
+  const headline = hormStr + admin;
+
+  const rtfMap = {
+    'Within 24 hours':               'same-day',
+    'Within days':                   'within days',
+    '1–3 months':                    '1–3 month',
+    '3–6 months':                    '3–6 month',
+    '~2 years (auto-reverses)':      '~2-year auto',
+    'Requires a reversal procedure': 'procedure-based',
+  };
+  const provMap = {
+    'Fully self-administered':                'fully self-managed',
+    'Provider for placement is OK':           'provider for placement',
+    'Provider for placement & removal is OK': 'provider for placement & removal',
+  };
+  const rtf  = rtfMap[ideal.returnToFertility] || ideal.returnToFertility;
+  const prov = provMap[ideal.providerRequired]  || ideal.providerRequired;
+  const eff  = ideal.efficacy || '';
+
+  // Side effect summary — individual attributes anchored to Kaur et al. framing
+  const sideNotes = [];
+  if (ideal.sexDrive === 'No change preferred')
+    sideNotes.push('no change to sex drive');
+  else if (ideal.sexDrive === 'Lower sex drive is acceptable')
+    sideNotes.push('some reduction in sex drive is acceptable');
+
+  if (ideal.testes === 'No change preferred')
+    sideNotes.push('no testicular changes');
+  else if (ideal.testes === 'Minor shrinkage is acceptable')
+    sideNotes.push('minor testicular changes are acceptable');
+
+  if (ideal.ejaculation === 'No change preferred')
+    sideNotes.push('no change to ejaculation');
+  else if (ideal.ejaculation === 'Less fluid is acceptable')
+    sideNotes.push('reduced ejaculate volume is acceptable');
+  else if (ideal.ejaculation === 'Dry orgasm (no fluid) is acceptable')
+    sideNotes.push('a dry orgasm (no ejaculate) is acceptable');
+
+  if (ideal.energyMood === 'No changes preferred')
+    sideNotes.push('stable energy and mood');
+  else if (ideal.energyMood === 'Mood or energy changes are acceptable')
+    sideNotes.push('mood or energy changes are acceptable');
+
+  const sideStr = sideNotes.length
+    ? ` On side effects, you indicated: ${sideNotes.join(', ')}.`
+    : '';
+
+  const adminLower = (ideal.administration || '').toLowerCase();
+  const body = `You're looking for a ${hormStr.toLowerCase()}${adminLower} `
+    + `that's ${prov}, ${eff} effective, `
+    + `with ${rtf} return to fertility.${sideStr}`;
+
+  return { headline, body };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SUMMARY
+// ═══════════════════════════════════════════════════════════
+function buildSummary() {
+  const ideal = S.idealProfile;
+  const MAX_SCORE = IDEAL_ATTRS.length; // 8
+
+  // ── Synthesis banner ──────────────────────────────────────
+  const { headline, body } = synthesizeProfile(ideal);
+  document.getElementById('synthesis-headline').textContent = headline;
+  document.getElementById('synthesis-body').textContent     = body;
+
+  // ── Top 3 matches ─────────────────────────────────────────
+  const matches = getTopMatches(ideal, 3);
+  const rankLabels = ['Best match', '2nd match', '3rd match'];
+
+  document.getElementById('match-cards').innerHTML = matches.map(({ product: p, score }, idx) => {
+    const pct = Math.round((score / MAX_SCORE) * 100);
+
+    // Which attributes matched? Highlight them
+    const matchedAttrs = IDEAL_ATTRS.filter(a => {
+      const hits = SCORING_MAP[a.id]?.[ideal[a.id]] || [];
+      return hits.includes(p.id);
+    });
+
+    // Show the 4 most informative attribute rows on match cards
+    const showAttrs = ['administration','efficacy','returnToFertility','ejaculation'];
+    const attrRows = showAttrs.map(key => {
+      const meta = ATTR_META[key]; if (!meta) return '';
+      const isMatch = matchedAttrs.some(a => a.id === key);
+      return `<div class="match-arow">
+        <span class="match-aicon">${meta.icon}</span>
+        <div>
+          <div class="match-alabel">${meta.label}</div>
+          <div class="match-aval ${isMatch ? 'match-highlight' : ''}">${p.attrs[key]}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div class="match-card">
+      <div class="match-card-hd">
+        <div class="rank">${rankLabels[idx]}</div>
+        <div class="mrealname">${p.icon} ${p.realName}</div>
+        <div class="mcategory">${p.name}</div>
+        <div class="mmeta">
+          <span class="mstage">${p.stage}</span>
+          <span>${p.developer}</span>
+        </div>
+      </div>
+      <div class="match-score-bar-wrap">
+        <div class="match-score-label"><span>Profile match</span><span>${pct}%</span></div>
+        <div class="match-score-bar"><div class="match-score-fill" style="width:${pct}%"></div></div>
+      </div>
+      <div class="match-card-body">${attrRows}</div>
+    </div>`;
+  }).join('');
+
+  // ── DCE choices ───────────────────────────────────────────
+  document.getElementById('sum-dce').innerHTML = S.dceRounds.map((r, i) => {
+    const pA = PRODUCTS.find(p => p.id === r.productA);
+    const pB = PRODUCTS.find(p => p.id === r.productB);
+    const chosen = r.choice === 'neither' ? null : PRODUCTS.find(p => p.id === r.choice);
+    return `<div class="sum-row">
+      <div>
+        <div class="rlbl">Round ${i + 1}</div>
+        <div class="rdesc">${pA.icon} ${pA.name} vs. ${pB.icon} ${pB.name}</div>
+      </div>
+      ${chosen
+        ? `<span class="badge badge-orange">${chosen.icon} ${chosen.name}</span>`
+        : `<span class="badge badge-gray">Neither</span>`}
+    </div>`;
+  }).join('');
+
+  // ── Full ideal profile ────────────────────────────────────
+  document.getElementById('sum-ideal').innerHTML = IDEAL_ATTRS.map(a => `
+    <div class="sum-row">
+      <div class="rlbl">${a.icon} ${a.label}</div>
+      <span class="badge badge-orange">${ideal[a.id] || '—'}</span>
+    </div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DATA SUBMISSION
+// ═══════════════════════════════════════════════════════════
+async function sendData() {
+  const payload = {
+    sessionId:    S.sessionId,
+    startTime:    S.startTime,
+    completedAt:  new Date().toISOString(),
+    userAgent:    S.userAgent,
+    dceRounds:    S.dceRounds,
+    idealProfile: S.idealProfile,
+  };
+
+  // Always persist locally
+  try {
+    const saved = JSON.parse(localStorage.getItem('mci_dce') || '[]');
+    saved.push(payload);
+    localStorage.setItem('mci_dce', JSON.stringify(saved));
+  } catch(e) {}
+
+  const note = document.getElementById('data-note');
+
+  if (!CONFIG.ENDPOINT_URL) {
+    console.warn('MCI DCE: No endpoint configured — data saved to localStorage only.');
+    note.textContent = 'Response saved locally (no endpoint configured). Thank you!';
+    return;
+  }
+
+  try {
+    await fetch(CONFIG.ENDPOINT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    note.textContent = 'Your anonymous response has been recorded. Thank you!';
+  } catch(err) {
+    console.error('MCI DCE send failed:', err);
+    note.textContent = 'Response saved locally. Thank you!';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  initBuilder();
+  document.addEventListener('dragend', () => {
+    document.querySelectorAll('.chip.dragging').forEach(c => c.classList.remove('dragging'));
+  });
+});
+</script>
+</body>
+</html>
