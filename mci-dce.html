@@ -620,6 +620,7 @@ const CONFIG = {
 const PRODUCTS = [
   {
     id: 'hormonal-implant', name: 'Hormonal Implant',
+    showInResults: false,
     realName: 'Progestin / T Implant', developer: 'NICHD · Population Council', stage: 'Phase 1–2',
     tagline: 'Long-acting, set-and-forget', icon: '💉',
     attrs: {
@@ -638,6 +639,7 @@ const PRODUCTS = [
   },
   {
     id: 'nonhormonal-implant', name: 'Non-Hormonal Implant',
+    showInResults: false,
     realName: 'Non-Hormonal Implant', developer: 'Multiple groups (early research)', stage: 'Preclinical',
     tagline: 'Long-acting, no hormones', icon: '🔩',
     attrs: {
@@ -656,7 +658,8 @@ const PRODUCTS = [
   },
   {
     id: 'on-demand-pill', name: 'On-Demand Pill',
-    realName: 'TDI-11861', developer: 'Weill Cornell / NICHD', stage: 'Phase 1',
+    showInResults: true,
+    realName: 'Sacyl On-Demand Pill', developer: 'Sacyl Pharmaceuticals', stage: 'IND-Enabling',
     tagline: 'Take it when you need it', icon: '💊',
     attrs: {
       efficacy:          '~86–90% effective',
@@ -674,6 +677,7 @@ const PRODUCTS = [
   },
   {
     id: 'daily-hormonal-pill', name: 'Daily Hormonal Pill',
+    showInResults: false,
     realName: 'DMAU / 11-β-MNTDC', developer: 'NICHD / Univ. of Washington', stage: 'Phase 2',
     tagline: 'Like hormonal birth control for men', icon: '📅',
     attrs: {
@@ -692,7 +696,8 @@ const PRODUCTS = [
   },
   {
     id: 'daily-nonhormonal-pill', name: 'Non-Hormonal Daily Pill',
-    realName: 'YCT-529', developer: 'YourChoice Therapeutics / Yale', stage: 'Phase 1',
+    showInResults: true,
+    realName: 'YCT-529', developer: 'YourChoice Therapeutics', stage: 'Phase IIa',
     tagline: 'In clinical trials now', icon: '🌿',
     attrs: {
       efficacy:          '~95% effective',
@@ -710,6 +715,7 @@ const PRODUCTS = [
   },
   {
     id: 'monthly-injection', name: 'Monthly Injection',
+    showInResults: false,
     realName: 'NE/TU Injectable', developer: 'WHO/HRP', stage: 'Phase 2–3',
     tagline: 'One shot a month', icon: '🩺',
     attrs: {
@@ -728,7 +734,8 @@ const PRODUCTS = [
   },
   {
     id: 'topical-gel', name: 'Topical Gel',
-    realName: 'NES/T Gel', developer: 'Population Council / NICHD', stage: 'Phase 2b–3',
+    showInResults: true,
+    realName: 'NES/T', developer: 'Population Council / Contraline', stage: 'Phase IIb → III',
     tagline: 'Daily rub-on, applied to skin', icon: '🧴',
     attrs: {
       efficacy:          '~95% effective',
@@ -746,7 +753,8 @@ const PRODUCTS = [
   },
   {
     id: 'on-demand-ejac', name: 'On-Demand Ejaculation Blocker',
-    realName: 'Silodosin (on-demand)', developer: 'Multiple research groups', stage: 'Phase 2',
+    showInResults: true,
+    realName: 'NLS-133', developer: 'NEXT Life Sciences', stage: 'Phase II',
     tagline: 'No sperm ejaculated — dry orgasm', icon: '⚡',
     attrs: {
       efficacy:          '~90% effective',
@@ -764,7 +772,8 @@ const PRODUCTS = [
   },
   {
     id: 'daily-ejac', name: 'Daily Ejaculation Blocker',
-    realName: 'Daily Silodosin', developer: 'Multiple research groups', stage: 'Phase 2',
+    showInResults: true,
+    realName: 'CONSILUM', developer: 'Pharmajor International', stage: 'Phase II',
     tagline: 'Ongoing protection, dry orgasm', icon: '🛡️',
     attrs: {
       efficacy:          '~95% effective',
@@ -782,7 +791,8 @@ const PRODUCTS = [
   },
   {
     id: 'vas-biodeg', name: 'Vas-Occlusive Gel (Biodegradable)',
-    realName: 'ADAM (Contraline)', developer: 'Contraline Inc.', stage: 'Phase 1–2',
+    showInResults: true,
+    realName: 'ADAM', developer: 'Contraline Inc.', stage: 'Phase II',
     tagline: 'Dissolves naturally in ~2 years', icon: '🧬',
     attrs: {
       efficacy:          '~99% effective',
@@ -800,7 +810,8 @@ const PRODUCTS = [
   },
   {
     id: 'vas-longterm', name: 'Vas-Occlusive Gel (Long-Term)',
-    realName: 'Vasalgel / RISUG', developer: 'Parsemus Foundation / IIT Kharagpur', stage: 'Phase 2–3',
+    showInResults: true,
+    realName: 'Plan A', developer: 'NEXT Life Sciences', stage: 'Phase II',
     tagline: '10+ years; second procedure to reverse', icon: '🔒',
     attrs: {
       efficacy:          '~99.9% effective',
@@ -1175,6 +1186,7 @@ function scoreProduct(product, ideal) {
 // Return top n products sorted by score descending
 function getTopMatches(ideal, n = 3) {
   return [...PRODUCTS]
+    .filter(p => p.showInResults !== false)
     .map(p => ({ product: p, score: scoreProduct(p, ideal) }))
     .sort((a, b) => b.score - a.score)
     .slice(0, n);
