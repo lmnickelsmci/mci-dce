@@ -323,8 +323,9 @@
     .ideal-hd p { font-size: 11px; opacity: .7; }
     .ideal-body { padding: 10px 18px; }
 
-    .islot { padding: 9px 0; border-bottom: 1px solid var(--gray-pale); }
+    .islot { padding: 9px 0; border-bottom: 1px solid var(--gray-pale); display: flex; align-items: flex-start; gap: 6px; }
     .islot:last-child { border-bottom: none; }
+    .islot-content { flex: 1; }
     .islot-lbl {
       font-size: 10px; font-weight: 700; color: var(--gray);
       text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px;
@@ -342,6 +343,32 @@
       font-weight: 700; border: 1.5px solid var(--orange);
     }
     .islot.drag-over .islot-val { border-color: var(--blue); background: var(--teal-pale); }
+
+    /* Blocked/incompatible chips */
+    .chip.chip-blocked {
+      opacity: 0.28;
+      cursor: not-allowed;
+      pointer-events: none;
+      text-decoration: line-through;
+    }
+
+    /* Rank badge on attr label */
+    .attr-rank-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--navy); color: var(--white);
+      font-size: 10px; font-weight: 700; flex-shrink: 0;
+    }
+
+    /* Reorder buttons on slots */
+    .islot-reorder { display: flex; flex-direction: column; gap: 2px; padding-top: 2px; }
+    .islot-reorder button {
+      background: none; border: 1px solid var(--gray-lt); border-radius: 3px;
+      width: 18px; height: 16px; font-size: 8px; cursor: pointer; line-height: 1;
+      color: var(--gray); padding: 0; transition: var(--trans);
+    }
+    .islot-reorder button:hover { background: var(--navy); color: var(--white); border-color: var(--navy); }
+    .islot-reorder button:disabled { opacity: 0.2; cursor: default; }
 
     .ideal-footer { padding: 6px 18px 16px; }
     .ideal-progress { font-size: 11px; color: var(--gray); text-align: center; margin-bottom: 10px; }
@@ -527,8 +554,8 @@
   <div class="builder-wrap">
     <!-- Left: attribute chips -->
     <div class="builder-opts-col">
-      <h2>Choose your ideal attributes</h2>
-      <p class="sub">Drag any option to your profile card, or click to select it.</p>
+      <h2>Build Your Ideal Method</h2>
+      <p class="sub">Start with the attribute that matters most to you — delivery method is shown first. Use ↑↓ on the right to reprioritize.</p>
       <div id="builder-attrs"><!-- injected --></div>
     </div>
 
@@ -536,8 +563,8 @@
     <div class="builder-card-col">
       <div class="ideal-card">
         <div class="ideal-hd">
-          <h3>⭐ My Ideal Contraceptive</h3>
-          <p>Drag or click options to fill in your profile</p>
+          <h3>Priority · Selections</h3>
+          <p>Most important at top</p>
         </div>
         <div class="ideal-body" id="ideal-slots"><!-- injected --></div>
         <div class="ideal-footer">
@@ -904,6 +931,7 @@ const S = {
   userAgent:    navigator.userAgent,
   dceRounds:    [],
   idealProfile: {},
+  attrRankOrder: null, // will be set in initBuilder
   round:        0,
   pairs:        [],
 };
@@ -1016,24 +1044,49 @@ function recordChoice(choice) {
 //  IDEAL BUILDER
 // ═══════════════════════════════════════════════════════════
 function initBuilder() {
+  // Initialize rank order with administration first
+  S.attrRankOrder = IDEAL_ATTRS.map(a => a.id);
+  const adminIdx = S.attrRankOrder.indexOf('administration');
+  if (adminIdx > 0) {
+    S.attrRankOrder.splice(adminIdx, 1);
+    S.attrRankOrder.unshift('administration');
+  }
+  renderBuilder();
+}
+
+function renderBuilder() {
   const attrsCont  = document.getElementById('builder-attrs');
   const slotsCont  = document.getElementById('ideal-slots');
   attrsCont.innerHTML = '';
   slotsCont.innerHTML = '';
 
-  IDEAL_ATTRS.forEach(attr => {
-    const chips = attr.options.map(opt =>
-      `<div class="chip" draggable="true"
+  const n = S.attrRankOrder.length;
+
+  S.attrRankOrder.forEach((attrId, rankIdx) => {
+    const attr = IDEAL_ATTRS.find(a => a.id === attrId);
+    if (!attr) return;
+
+    const rankNum = rankIdx + 1;
+    const chips = attr.options.map(opt => {
+      const isSel = S.idealProfile[attr.id] === opt;
+      return `<div class="chip${isSel ? ' chip-sel' : ''}" draggable="true"
         data-attr="${attr.id}" data-value="${opt}"
         ondragstart="chipDragStart(event)"
-        onclick="chipClick(event)">${opt}</div>`
-    ).join('');
+        onclick="chipClick(event)">${opt}</div>`;
+    }).join('');
 
     attrsCont.innerHTML += `
       <div class="attr-group">
-        <div class="attr-group-lbl">${attr.icon} ${attr.label}</div>
+        <div class="attr-group-lbl"><span class="attr-rank-badge">${rankNum}</span> ${attr.icon} ${attr.label}</div>
         <div class="chips" id="chips-${attr.id}">${chips}</div>
       </div>`;
+
+    const curVal = S.idealProfile[attr.id];
+    const slotValClass = curVal ? 'islot-val filled' : 'islot-val empty';
+    const slotValText  = curVal ? curVal : 'drag or click an option';
+
+    const upDisabled   = rankIdx === 0 ? 'disabled' : '';
+    const downDisabled = rankIdx === n - 1 ? 'disabled' : '';
 
     slotsCont.innerHTML += `
       <div class="islot" id="slot-${attr.id}"
@@ -1041,12 +1094,19 @@ function initBuilder() {
         ondragover="slotDragOver(event)"
         ondragleave="slotDragLeave(event)"
         ondrop="slotDrop(event)">
-        <div class="islot-lbl">${attr.icon} ${attr.label}</div>
-        <div class="islot-val empty" id="slotval-${attr.id}">drag or click an option</div>
+        <div class="islot-content">
+          <div class="islot-lbl">${attr.icon} ${attr.label}</div>
+          <div class="${slotValClass}" id="slotval-${attr.id}">${slotValText}</div>
+        </div>
+        <div class="islot-reorder">
+          <button ${upDisabled} onclick="reorderAttr('${attr.id}', -1)" title="Move up">▲</button>
+          <button ${downDisabled} onclick="reorderAttr('${attr.id}', 1)" title="Move down">▼</button>
+        </div>
       </div>`;
   });
 
   updateBuilderProg();
+  updateCompatibility();
 }
 
 let _dragAttr = null, _dragVal = null;
@@ -1075,6 +1135,15 @@ function chipClick(e) {
   setIdeal(e.currentTarget.dataset.attr, e.currentTarget.dataset.value);
 }
 
+function reorderAttr(attrId, direction) {
+  const idx = S.attrRankOrder.indexOf(attrId);
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= S.attrRankOrder.length) return;
+  S.attrRankOrder.splice(idx, 1);
+  S.attrRankOrder.splice(newIdx, 0, attrId);
+  renderBuilder();
+}
+
 function setIdeal(attrId, value) {
   S.idealProfile[attrId] = value;
   const sv = document.getElementById('slotval-' + attrId);
@@ -1084,6 +1153,7 @@ function setIdeal(attrId, value) {
     c.classList.toggle('chip-sel', c.dataset.value === value);
   });
   updateBuilderProg();
+  updateCompatibility();
 }
 
 function updateBuilderProg() {
@@ -1198,13 +1268,58 @@ const SCORING_MAP = {
   },
 };
 
-// Score a product against the ideal profile (max = number of attrs = 8)
+// Each entry: [attrA, valA, attrB, valB] — these two selections are mutually incompatible
+const INCOMPATIBLE_PAIRS = [
+  ['administration', 'One-time vas procedure',     'hormonal',          'Hormonal is fine'],
+  ['administration', 'One-time vas procedure',     'providerRequired',  'Fully self-administered'],
+  ['administration', 'One-time vas procedure',     'returnToFertility', 'Within 24 hours'],
+  ['administration', 'One-time vas procedure',     'returnToFertility', 'Within days'],
+  ['administration', 'One-time vas procedure',     'returnToFertility', '1–3 months'],
+  ['administration', 'Implanted device',           'providerRequired',  'Fully self-administered'],
+  ['administration', 'On-demand dose (before sex)','hormonal',          'Hormonal is fine'],
+  ['administration', 'On-demand dose (before sex)','onset',             '~3 months'],
+  ['administration', 'On-demand dose (before sex)','returnToFertility', '~2 years (auto-reverses)'],
+  ['administration', 'On-demand dose (before sex)','returnToFertility', 'Requires a reversal procedure'],
+  ['administration', 'Daily wearable',             'hormonal',          'Hormonal is fine'],
+];
+
+function getBlockedOptions(ideal) {
+  const blocked = new Set();
+  for (const [a1, v1, a2, v2] of INCOMPATIBLE_PAIRS) {
+    if (ideal[a1] === v1) blocked.add(a2 + ':' + v2);
+    if (ideal[a2] === v2) blocked.add(a1 + ':' + v1);
+  }
+  return blocked;
+}
+
+function updateCompatibility() {
+  const blocked = getBlockedOptions(S.idealProfile);
+  document.querySelectorAll('.chip').forEach(chip => {
+    const key = chip.dataset.attr + ':' + chip.dataset.value;
+    const isBlocked = blocked.has(key);
+    chip.classList.toggle('chip-blocked', isBlocked);
+    // If currently selected option becomes blocked, clear it
+    if (isBlocked && chip.classList.contains('chip-sel')) {
+      delete S.idealProfile[chip.dataset.attr];
+      const sv = document.getElementById('slotval-' + chip.dataset.attr);
+      if (sv) { sv.textContent = 'drag or click an option'; sv.className = 'islot-val empty'; }
+      chip.classList.remove('chip-sel');
+      updateBuilderProg();
+    }
+  });
+}
+
+// Score a product against the ideal profile using rank weights
 function scoreProduct(product, ideal) {
   let score = 0;
-  for (const [attr, val] of Object.entries(ideal)) {
-    const matches = SCORING_MAP[attr]?.[val] || [];
-    if (matches.includes(product.id)) score++;
-  }
+  const n = S.attrRankOrder.length;
+  S.attrRankOrder.forEach((attrId, idx) => {
+    const weight = n - idx; // rank 1 → weight n, rank n → weight 1
+    const val = ideal[attrId];
+    if (!val) return;
+    const matches = SCORING_MAP[attrId]?.[val] || [];
+    if (matches.includes(product.id)) score += weight;
+  });
   return score;
 }
 
@@ -1292,7 +1407,8 @@ function synthesizeProfile(ideal) {
 // ═══════════════════════════════════════════════════════════
 function buildSummary() {
   const ideal = S.idealProfile;
-  const MAX_SCORE = IDEAL_ATTRS.length; // 8
+  const n = S.attrRankOrder.length;
+  const MAX_SCORE = (n * (n + 1)) / 2; // triangular number = sum of weights
 
   // ── Synthesis banner ──────────────────────────────────────
   const { headline, body } = synthesizeProfile(ideal);
