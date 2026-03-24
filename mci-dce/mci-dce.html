@@ -631,7 +631,7 @@ const PRODUCTS = [
       hormonal:          'Hormonal',
       providerRequired:  'Provider visit required',
       sexDrive:          'May lower sex drive',
-      testes:            'May shrink slightly',
+      testes:            '~50% volume reduction during use',
       ejaculation:       'Less fluid at orgasm',
       energy:            'Possible fatigue or weight changes',
       mood:              'Possible mood swings',
@@ -688,7 +688,7 @@ const PRODUCTS = [
       hormonal:          'Hormonal',
       providerRequired:  'Self-administered',
       sexDrive:          'May lower sex drive',
-      testes:            'May shrink slightly',
+      testes:            '~50% volume reduction during use',
       ejaculation:       'Less fluid at orgasm',
       energy:            'Possible fatigue or weight changes',
       mood:              'Possible mood swings',
@@ -697,7 +697,7 @@ const PRODUCTS = [
   {
     id: 'daily-nonhormonal-pill', name: 'Non-Hormonal Daily Pill',
     showInResults: true,
-    realName: 'YCT-529', developer: 'YourChoice Therapeutics', stage: 'Phase IIa',
+    realName: 'YCT-529', developer: 'YourChoice Therapeutics', stage: 'Phase II',
     tagline: 'In clinical trials now', icon: '🌿',
     attrs: {
       efficacy:          '~95% effective',
@@ -707,7 +707,7 @@ const PRODUCTS = [
       hormonal:          'Non-hormonal',
       providerRequired:  'Self-administered',
       sexDrive:          'No change',
-      testes:            'No change',
+      testes:            '~50% volume reduction during use',
       ejaculation:       'No change',
       energy:            'No change',
       mood:              'No change',
@@ -726,7 +726,7 @@ const PRODUCTS = [
       hormonal:          'Hormonal',
       providerRequired:  'Provider visit or self-inject',
       sexDrive:          'May lower sex drive',
-      testes:            'May shrink slightly',
+      testes:            '~50% volume reduction during use',
       ejaculation:       'Less fluid at orgasm',
       energy:            'Possible fatigue or weight changes',
       mood:              'Possible mood swings',
@@ -735,7 +735,7 @@ const PRODUCTS = [
   {
     id: 'topical-gel', name: 'Topical Gel',
     showInResults: true,
-    realName: 'NES/T', developer: 'Population Council / Contraline', stage: 'Phase IIb → III',
+    realName: 'NES/T', developer: 'Population Council / Contraline', stage: 'Phase II',
     tagline: 'Daily rub-on, applied to skin', icon: '🧴',
     attrs: {
       efficacy:          '~95% effective',
@@ -745,7 +745,7 @@ const PRODUCTS = [
       hormonal:          'Hormonal',
       providerRequired:  'Self-administered',
       sexDrive:          'May lower sex drive',
-      testes:            'May shrink slightly',
+      testes:            '~50% volume reduction during use',
       ejaculation:       'Less fluid at orgasm',
       energy:            'Possible fatigue or weight changes',
       mood:              'Possible mood swings',
@@ -827,6 +827,25 @@ const PRODUCTS = [
       mood:              'No change',
     }
   },
+  {
+    id: 'andro-switch', name: 'Thermal Wearable',
+    showInResults: true,
+    realName: 'Andro-Switch', developer: 'Entrelac.coop (France)', stage: 'Preclinical',
+    tagline: 'Daily ring worn to elevate testicular temp', icon: '🌡️',
+    attrs: {
+      efficacy:          '~99% effective',
+      administration:    'Daily wearable (ring, worn ~15 hrs/day)',
+      onset:             '~3 months to full effect',
+      returnToFertility: '1–3 months after stopping',
+      hormonal:          'Non-hormonal',
+      providerRequired:  'Self-administered',
+      sexDrive:          'No change',
+      testes:            '~50% volume reduction during use',
+      ejaculation:       'No change',
+      energy:            'No change',
+      mood:              'No change',
+    }
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -857,7 +876,7 @@ const IDEAL_ATTRS = [
   { id: 'efficacy', label: 'How effective?', icon: '🎯',
     options: ['~86–90% effective', '~95% effective', '~99% effective', '~99.9% effective'] },
   { id: 'administration', label: 'How do I take it?', icon: '📋',
-    options: ['On-demand dose (before sex)', 'Daily pill', 'Daily gel', 'Monthly injection', 'Implanted device', 'One-time vas procedure'] },
+    options: ['On-demand dose (before sex)', 'Daily pill', 'Daily gel', 'Daily wearable', 'Monthly injection', 'Implanted device', 'One-time vas procedure'] },
   { id: 'onset', label: 'How fast does it work?', icon: '⏱️',
     options: ['Within hours', '~1 week', '3–4 weeks', '~3 months'] },
   { id: 'returnToFertility', label: 'When can I be fertile again?', icon: '🔄',
@@ -869,7 +888,7 @@ const IDEAL_ATTRS = [
   { id: 'sexDrive', label: 'Affect sex drive?', icon: '❤️',
     options: ['No change preferred', 'Lower sex drive is acceptable', "Doesn't matter to me"] },
   { id: 'testes', label: 'Affect testes size?', icon: '⚕️',
-    options: ['No change preferred', 'Minor shrinkage is acceptable', "Doesn't matter to me"] },
+    options: ['No change preferred', 'Volume reduction during use is acceptable', "Doesn't matter to me"] },
   { id: 'ejaculation', label: 'Affect ejaculation?', icon: '💧',
     options: ['No change preferred', 'Less fluid is acceptable', 'Dry orgasm (no fluid) is acceptable', "Doesn't matter to me"] },
   { id: 'energyMood', label: 'Affect energy or mood?', icon: '🧠',
@@ -1094,8 +1113,13 @@ function skipBuilder() {
 // SCORING MAP — maps each ideal builder selection to the product IDs that match it.
 // Anchored to the Kaur et al. attribute structure: side effects are scored
 // individually (sex drive, testes, ejaculation, energy/mood) rather than collapsed.
+// Products with no hormonal side effects (sex drive, energy, mood) — includes YCT-529 and Andro-Switch
 const NO_SE_CHANGE = ['nonhormonal-implant','on-demand-pill','daily-nonhormonal-pill',
-                      'on-demand-ejac','daily-ejac','vas-biodeg','vas-longterm'];
+                      'on-demand-ejac','daily-ejac','vas-biodeg','vas-longterm','andro-switch'];
+// Products that don't cause testicular volume reduction — excludes YCT-529 (RAR-α disrupts
+// spermatogenesis) and Andro-Switch (thermal suppression of spermatogenesis)
+const NO_TESTES_CHANGE = ['nonhormonal-implant','on-demand-pill',
+                           'on-demand-ejac','daily-ejac','vas-biodeg','vas-longterm'];
 const HORMONAL_PRODUCTS = ['hormonal-implant','daily-hormonal-pill','monthly-injection','topical-gel'];
 const ALL_IDS = () => PRODUCTS.map(p => p.id);
 
@@ -1106,13 +1130,14 @@ const SCORING_MAP = {
                            'daily-ejac','monthly-injection','hormonal-implant',
                            'nonhormonal-implant','vas-biodeg','vas-longterm'], // ≥95%
     '~99% effective':     ['monthly-injection','hormonal-implant','nonhormonal-implant',
-                           'vas-biodeg','vas-longterm'],                        // ≥99%
+                           'vas-biodeg','vas-longterm','andro-switch'],         // ≥99%
     '~99.9% effective':   ['vas-longterm'],                                     // ≥99.9%
   },
   administration: {
     'On-demand dose (before sex)':  ['on-demand-pill','on-demand-ejac'],
     'Daily pill':                   ['daily-hormonal-pill','daily-nonhormonal-pill','daily-ejac'],
     'Daily gel':                    ['topical-gel'],
+    'Daily wearable':               ['andro-switch'],
     'Monthly injection':            ['monthly-injection'],
     'Implanted device':             ['hormonal-implant','nonhormonal-implant'],
     'One-time vas procedure':       ['vas-biodeg','vas-longterm'],
@@ -1121,12 +1146,12 @@ const SCORING_MAP = {
     'Within hours': ['on-demand-pill','on-demand-ejac','vas-biodeg','vas-longterm'], // immediate ≈ hours
     '~1 week':      ['daily-ejac'],
     '3–4 weeks':    ['daily-nonhormonal-pill','monthly-injection','nonhormonal-implant'],
-    '~3 months':    ['daily-hormonal-pill','topical-gel','hormonal-implant'],
+    '~3 months':    ['daily-hormonal-pill','topical-gel','hormonal-implant','andro-switch'],
   },
   returnToFertility: {
     'Within 24 hours':               ['on-demand-pill','on-demand-ejac'],
     'Within days':                   ['daily-ejac'],
-    '1–3 months':                    ['daily-nonhormonal-pill','nonhormonal-implant'],
+    '1–3 months':                    ['daily-nonhormonal-pill','nonhormonal-implant','andro-switch'],
     '3–6 months':                    ['daily-hormonal-pill','topical-gel','monthly-injection','hormonal-implant'],
     '~2 years (auto-reverses)':      ['vas-biodeg'],
     'Requires a reversal procedure': ['vas-longterm'],
@@ -1139,7 +1164,7 @@ const SCORING_MAP = {
   providerRequired: {
     'Fully self-administered':                ['on-demand-pill','daily-hormonal-pill',
                                                'daily-nonhormonal-pill','topical-gel',
-                                               'on-demand-ejac','daily-ejac'],
+                                               'on-demand-ejac','daily-ejac','andro-switch'],
     'Provider for placement is OK':           ['hormonal-implant','nonhormonal-implant',
                                                'vas-biodeg','monthly-injection'],
     'Provider for placement & removal is OK': ['vas-longterm'],
@@ -1151,17 +1176,17 @@ const SCORING_MAP = {
     "Doesn't matter to me":          ALL_IDS(),
   },
   testes: {
-    'No change preferred':           NO_SE_CHANGE,
-    'Minor shrinkage is acceptable': ALL_IDS(),
-    "Doesn't matter to me":          ALL_IDS(),
+    'No change preferred':                    NO_TESTES_CHANGE,
+    'Volume reduction during use is acceptable': ALL_IDS(),
+    "Doesn't matter to me":                   ALL_IDS(),
   },
   ejaculation: {
     // 'No change' = no ejaculation alteration (neither reduced nor dry orgasm)
     'No change preferred':               ['nonhormonal-implant','on-demand-pill','daily-nonhormonal-pill',
-                                          'vas-biodeg','vas-longterm'],
+                                          'vas-biodeg','vas-longterm','andro-switch'],
     // 'Less fluid' = tolerates reduced volume (hormonal) but not dry orgasm (ejac blockers)
     'Less fluid is acceptable':          ['nonhormonal-implant','on-demand-pill','daily-nonhormonal-pill',
-                                          'vas-biodeg','vas-longterm',
+                                          'vas-biodeg','vas-longterm','andro-switch',
                                           ...HORMONAL_PRODUCTS],
     'Dry orgasm (no fluid) is acceptable': ALL_IDS(),  // tolerates ejac blockers too
     "Doesn't matter to me":               ALL_IDS(),
@@ -1198,6 +1223,7 @@ function synthesizeProfile(ideal) {
     'On-demand dose (before sex)': 'On-Demand Method',
     'Daily pill':                  'Daily Pill',
     'Daily gel':                   'Daily Topical Gel',
+    'Daily wearable':              'Daily Wearable',
     'Monthly injection':           'Monthly Injection',
     'Implanted device':            'Long-Acting Implant',
     'One-time vas procedure':      'Vas-Occlusive Approach',
@@ -1234,8 +1260,8 @@ function synthesizeProfile(ideal) {
 
   if (ideal.testes === 'No change preferred')
     sideNotes.push('no testicular changes');
-  else if (ideal.testes === 'Minor shrinkage is acceptable')
-    sideNotes.push('minor testicular changes are acceptable');
+  else if (ideal.testes === 'Volume reduction during use is acceptable')
+    sideNotes.push('testicular volume reduction during use is acceptable');
 
   if (ideal.ejaculation === 'No change preferred')
     sideNotes.push('no change to ejaculation');
