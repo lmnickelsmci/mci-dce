@@ -343,6 +343,9 @@
       font-weight: 700; border: 1.5px solid var(--orange);
     }
     .islot.drag-over .islot-val { border-color: var(--blue); background: var(--teal-pale); }
+    .islot[draggable="true"] { cursor: grab; }
+    .islot.dragging { opacity: .45; cursor: grabbing; }
+    .islot.slot-reorder-over { background: var(--teal-pale); border-radius: 4px; }
 
     /* Blocked/incompatible chips */
     .chip.chip-blocked {
@@ -1090,7 +1093,9 @@ function renderBuilder() {
 
     slotsCont.innerHTML += `
       <div class="islot" id="slot-${attr.id}"
+        draggable="true"
         data-attr="${attr.id}"
+        ondragstart="slotDragStart(event)"
         ondragover="slotDragOver(event)"
         ondragleave="slotDragLeave(event)"
         ondrop="slotDrop(event)">
@@ -1109,30 +1114,64 @@ function renderBuilder() {
   updateCompatibility();
 }
 
-let _dragAttr = null, _dragVal = null;
+let _dragAttr = null, _dragVal = null, _dragSlotAttr = null;
 
 function chipDragStart(e) {
   _dragAttr = e.currentTarget.dataset.attr;
   _dragVal  = e.currentTarget.dataset.value;
+  _dragSlotAttr = null;
   e.currentTarget.classList.add('dragging');
   e.dataTransfer.effectAllowed = 'copy';
 }
+function slotDragStart(e) {
+  if (e.target.tagName === 'BUTTON') { e.preventDefault(); return; }
+  _dragSlotAttr = e.currentTarget.dataset.attr;
+  _dragAttr = null; _dragVal = null;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
 function slotDragOver(e) {
   e.preventDefault();
-  e.currentTarget.classList.add('drag-over');
-  e.dataTransfer.dropEffect = 'copy';
+  if (_dragSlotAttr && _dragSlotAttr !== e.currentTarget.dataset.attr) {
+    e.currentTarget.classList.add('slot-reorder-over');
+    e.dataTransfer.dropEffect = 'move';
+  } else if (_dragAttr) {
+    e.currentTarget.classList.add('drag-over');
+    e.dataTransfer.dropEffect = 'copy';
+  }
 }
-function slotDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function slotDragLeave(e) { e.currentTarget.classList.remove('drag-over', 'slot-reorder-over'); }
 function slotDrop(e) {
   e.preventDefault();
   const slot = e.currentTarget;
-  slot.classList.remove('drag-over');
-  if (_dragAttr && slot.dataset.attr === _dragAttr) setIdeal(_dragAttr, _dragVal);
-  document.querySelectorAll('.chip.dragging').forEach(c => c.classList.remove('dragging'));
-  _dragAttr = _dragVal = null;
+  slot.classList.remove('drag-over', 'slot-reorder-over');
+  if (_dragSlotAttr && slot.dataset.attr !== _dragSlotAttr) {
+    const fromIdx = S.attrRankOrder.indexOf(_dragSlotAttr);
+    const toIdx   = S.attrRankOrder.indexOf(slot.dataset.attr);
+    if (fromIdx !== -1 && toIdx !== -1) {
+      S.attrRankOrder.splice(fromIdx, 1);
+      S.attrRankOrder.splice(toIdx, 0, _dragSlotAttr);
+      renderBuilder();
+    }
+  } else if (_dragAttr && slot.dataset.attr === _dragAttr) {
+    setIdeal(_dragAttr, _dragVal);
+  }
+  document.querySelectorAll('.chip.dragging, .islot.dragging').forEach(c => c.classList.remove('dragging'));
+  _dragAttr = _dragVal = _dragSlotAttr = null;
 }
 function chipClick(e) {
-  setIdeal(e.currentTarget.dataset.attr, e.currentTarget.dataset.value);
+  const attr = e.currentTarget.dataset.attr;
+  const val  = e.currentTarget.dataset.value;
+  if (S.idealProfile[attr] === val) {
+    delete S.idealProfile[attr];
+    const sv = document.getElementById('slotval-' + attr);
+    if (sv) { sv.textContent = 'drag or click an option'; sv.className = 'islot-val empty'; }
+    document.querySelectorAll(`[data-attr="${attr}"]`).forEach(c => c.classList.remove('chip-sel'));
+    updateBuilderProg();
+    updateCompatibility();
+  } else {
+    setIdeal(attr, val);
+  }
 }
 
 function reorderAttr(attrId, direction) {
@@ -1145,7 +1184,20 @@ function reorderAttr(attrId, direction) {
 }
 
 function setIdeal(attrId, value) {
+  const wasEmpty = !S.idealProfile[attrId];
   S.idealProfile[attrId] = value;
+  // First selection of this attr: bubble it up to just after the last already-filled slot
+  if (wasEmpty) {
+    const filledCount = Object.keys(S.idealProfile).length - 1;
+    const curIdx = S.attrRankOrder.indexOf(attrId);
+    if (curIdx > filledCount) {
+      S.attrRankOrder.splice(curIdx, 1);
+      S.attrRankOrder.splice(filledCount, 0, attrId);
+    }
+    renderBuilder();
+    return;
+  }
+  // Changing an already-set attr: update visuals in place
   const sv = document.getElementById('slotval-' + attrId);
   sv.textContent = value;
   sv.classList.remove('empty'); sv.classList.add('filled');
